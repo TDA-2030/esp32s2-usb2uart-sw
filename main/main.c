@@ -17,6 +17,7 @@
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "nvs_flash.h"
 #include "serial.h"
 #include "tusb.h"
 #include "jtag.h"
@@ -226,6 +227,29 @@ void app_main(void)
 {
     init_led_gpios(); // Keep this at the begining. LEDs are used for error reporting.
 
+    gpio_set_level(CONFIG_BRIDGE_GPIO_LED1, CONFIG_BRIDGE_GPIO_LED1_ACTIVE);
+    gpio_set_level(CONFIG_BRIDGE_GPIO_LED2, !CONFIG_BRIDGE_GPIO_LED2_ACTIVE);
+    gpio_set_level(CONFIG_BRIDGE_GPIO_LED3, !CONFIG_BRIDGE_GPIO_LED3_ACTIVE);
+    vTaskDelay(pdMS_TO_TICKS(50));
+    gpio_set_level(CONFIG_BRIDGE_GPIO_LED1, !CONFIG_BRIDGE_GPIO_LED1_ACTIVE);
+    gpio_set_level(CONFIG_BRIDGE_GPIO_LED2, CONFIG_BRIDGE_GPIO_LED2_ACTIVE);
+    gpio_set_level(CONFIG_BRIDGE_GPIO_LED3, !CONFIG_BRIDGE_GPIO_LED3_ACTIVE);
+    vTaskDelay(pdMS_TO_TICKS(50));
+    gpio_set_level(CONFIG_BRIDGE_GPIO_LED1, !CONFIG_BRIDGE_GPIO_LED1_ACTIVE);
+    gpio_set_level(CONFIG_BRIDGE_GPIO_LED2, !CONFIG_BRIDGE_GPIO_LED2_ACTIVE);
+    gpio_set_level(CONFIG_BRIDGE_GPIO_LED3, CONFIG_BRIDGE_GPIO_LED3_ACTIVE);
+    vTaskDelay(pdMS_TO_TICKS(50));
+    gpio_set_level(CONFIG_BRIDGE_GPIO_LED1, !CONFIG_BRIDGE_GPIO_LED1_ACTIVE);
+    gpio_set_level(CONFIG_BRIDGE_GPIO_LED2, !CONFIG_BRIDGE_GPIO_LED2_ACTIVE);
+    gpio_set_level(CONFIG_BRIDGE_GPIO_LED3, !CONFIG_BRIDGE_GPIO_LED3_ACTIVE);
+
+    esp_err_t ret = nvs_flash_init();
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        ret = nvs_flash_init();
+    }
+    ESP_ERROR_CHECK(ret);
+
     init_serial_no();
 
     periph_module_reset(PERIPH_USB_MODULE);
@@ -241,6 +265,7 @@ void app_main(void)
 
     xTaskCreate(tusb_device_task, "tusb_device_task", 4 * 1024, NULL, 5, NULL);
     xTaskCreate(msc_task, "msc_task", 4 * 1024, NULL, 5, NULL);
+    // xTaskCreate(wifi_task, "wifi_task", 4 * 1024, NULL, 5, NULL);
     xTaskCreate(start_serial_task, "start_serial_task", 4 * 1024, NULL, 5, NULL);
     xTaskCreate(jtag_task, "jtag_task", 4 * 1024, NULL, 5, NULL);
 }
