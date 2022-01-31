@@ -303,11 +303,11 @@ void jtag_task(void *pvParameters)
     int prev_cmd = CMD_SRST0, rep_cnt = 0;
 
     while (1) {
-        gpio_set_level(LED_JTAG, LED_JTAG_OFF);
+        // gpio_set_level(LED_JTAG, LED_JTAG_OFF);
         char *nibbles = (char *)xRingbufferReceive(usb_rcvbuf,
                         &cnt,
                         portMAX_DELAY);
-        gpio_set_level(LED_JTAG, LED_JTAG_ON);
+        // gpio_set_level(LED_JTAG, LED_JTAG_ON);
 
         ESP_LOG_BUFFER_HEXDUMP(TAG, nibbles, cnt, ESP_LOG_DEBUG);
 

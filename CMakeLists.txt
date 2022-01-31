@@ -8,7 +8,7 @@ if(${IDF_VERSION_MAJOR} LESS 4 AND ${IDF_VERSION_MINOR} LESS 3)
     message(FATAL_ERROR "ESP-IDF v${IDF_VERSION_MAJOR}.${IDF_VERSION_MINOR} is not supported! "
         "Please use v4.3 or newer.")
 endif()
-
+add_compile_options(-fdiagnostics-color=always)
 project(bridge)
 
 

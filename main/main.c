@@ -29,6 +29,7 @@
 #include "driver/gpio.h"
 #include "sdkconfig.h"
 #include "esp_system.h"
+#include "led.h"
 
 static const char *TAG = "bridge_main";
 
@@ -205,43 +206,25 @@ static void tusb_device_task(void *pvParameters)
     vTaskDelete(NULL);
 }
 
-static void init_led_gpios()
-{
-    gpio_config_t io_conf = {};
-    io_conf.intr_type = GPIO_PIN_INTR_DISABLE;
-    io_conf.mode = GPIO_MODE_OUTPUT;
-    io_conf.pin_bit_mask = (1ULL << CONFIG_BRIDGE_GPIO_LED1) | (1ULL << CONFIG_BRIDGE_GPIO_LED2) |
-                           (1ULL << CONFIG_BRIDGE_GPIO_LED3);
-    io_conf.pull_down_en = 0;
-    io_conf.pull_up_en = 0;
-    ESP_ERROR_CHECK(gpio_config(&io_conf));
-
-    gpio_set_level(CONFIG_BRIDGE_GPIO_LED1, !CONFIG_BRIDGE_GPIO_LED1_ACTIVE);
-    gpio_set_level(CONFIG_BRIDGE_GPIO_LED2, !CONFIG_BRIDGE_GPIO_LED2_ACTIVE);
-    gpio_set_level(CONFIG_BRIDGE_GPIO_LED3, !CONFIG_BRIDGE_GPIO_LED3_ACTIVE);
-
-    ESP_LOGI(TAG, "LED GPIO init done");
-}
-
 void app_main(void)
 {
-    init_led_gpios(); // Keep this at the begining. LEDs are used for error reporting.
+    led_init(); // Keep this at the begining. LEDs are used for error reporting.
 
-    gpio_set_level(CONFIG_BRIDGE_GPIO_LED1, CONFIG_BRIDGE_GPIO_LED1_ACTIVE);
-    gpio_set_level(CONFIG_BRIDGE_GPIO_LED2, !CONFIG_BRIDGE_GPIO_LED2_ACTIVE);
-    gpio_set_level(CONFIG_BRIDGE_GPIO_LED3, !CONFIG_BRIDGE_GPIO_LED3_ACTIVE);
+    LED1_ON();
+    LED2_OFF();
+    LED3_OFF();
     vTaskDelay(pdMS_TO_TICKS(50));
-    gpio_set_level(CONFIG_BRIDGE_GPIO_LED1, !CONFIG_BRIDGE_GPIO_LED1_ACTIVE);
-    gpio_set_level(CONFIG_BRIDGE_GPIO_LED2, CONFIG_BRIDGE_GPIO_LED2_ACTIVE);
-    gpio_set_level(CONFIG_BRIDGE_GPIO_LED3, !CONFIG_BRIDGE_GPIO_LED3_ACTIVE);
+    LED1_OFF();
+    LED2_ON();
+    LED3_OFF();
     vTaskDelay(pdMS_TO_TICKS(50));
-    gpio_set_level(CONFIG_BRIDGE_GPIO_LED1, !CONFIG_BRIDGE_GPIO_LED1_ACTIVE);
-    gpio_set_level(CONFIG_BRIDGE_GPIO_LED2, !CONFIG_BRIDGE_GPIO_LED2_ACTIVE);
-    gpio_set_level(CONFIG_BRIDGE_GPIO_LED3, CONFIG_BRIDGE_GPIO_LED3_ACTIVE);
+    LED1_OFF();
+    LED2_OFF();
+    LED3_ON();
     vTaskDelay(pdMS_TO_TICKS(50));
-    gpio_set_level(CONFIG_BRIDGE_GPIO_LED1, !CONFIG_BRIDGE_GPIO_LED1_ACTIVE);
-    gpio_set_level(CONFIG_BRIDGE_GPIO_LED2, !CONFIG_BRIDGE_GPIO_LED2_ACTIVE);
-    gpio_set_level(CONFIG_BRIDGE_GPIO_LED3, !CONFIG_BRIDGE_GPIO_LED3_ACTIVE);
+    LED1_OFF();
+    LED2_OFF();
+    LED3_OFF();
 
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
@@ -249,6 +232,17 @@ void app_main(void)
         ret = nvs_flash_init();
     }
     ESP_ERROR_CHECK(ret);
+
+    LED1_ON();
+    esp_err_t app_wifi_main(void);
+    if (ESP_OK == app_wifi_main()) {
+        for (size_t i = 0; i < 4; i++) {
+            LED1_ON();
+            vTaskDelay(pdMS_TO_TICKS(50));
+            LED1_OFF();
+        }
+    }
+    LED1_OFF();
 
     init_serial_no();
 
@@ -263,9 +257,9 @@ void app_main(void)
 
     tusb_init();
 
-    xTaskCreate(tusb_device_task, "tusb_device_task", 4 * 1024, NULL, 5, NULL);
+    xTaskCreate(tusb_device_task, "tusb_device_task", 4 * 1024, NULL, configMAX_PRIORITIES - 3, NULL);
     xTaskCreate(msc_task, "msc_task", 4 * 1024, NULL, 5, NULL);
     // xTaskCreate(wifi_task, "wifi_task", 4 * 1024, NULL, 5, NULL);
-    xTaskCreate(start_serial_task, "start_serial_task", 4 * 1024, NULL, 5, NULL);
+    xTaskCreate(start_serial_task, "start_serial_task", 4 * 1024, NULL, configMAX_PRIORITIES - 4, NULL);
     xTaskCreate(jtag_task, "jtag_task", 4 * 1024, NULL, 5, NULL);
 }
