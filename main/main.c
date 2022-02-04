@@ -30,6 +30,7 @@
 #include "sdkconfig.h"
 #include "esp_system.h"
 #include "led.h"
+#include "tcp_server.h"
 
 static const char *TAG = "bridge_main";
 
@@ -233,17 +234,6 @@ void app_main(void)
     }
     ESP_ERROR_CHECK(ret);
 
-    LED1_ON();
-    esp_err_t app_wifi_main(void);
-    if (ESP_OK == app_wifi_main()) {
-        for (size_t i = 0; i < 4; i++) {
-            LED1_ON();
-            vTaskDelay(pdMS_TO_TICKS(50));
-            LED1_OFF();
-        }
-    }
-    LED1_OFF();
-
     init_serial_no();
 
     periph_module_reset(PERIPH_USB_MODULE);
@@ -259,7 +249,18 @@ void app_main(void)
 
     xTaskCreate(tusb_device_task, "tusb_device_task", 4 * 1024, NULL, configMAX_PRIORITIES - 3, NULL);
     xTaskCreate(msc_task, "msc_task", 4 * 1024, NULL, 5, NULL);
-    // xTaskCreate(wifi_task, "wifi_task", 4 * 1024, NULL, 5, NULL);
     xTaskCreate(start_serial_task, "start_serial_task", 4 * 1024, NULL, configMAX_PRIORITIES - 4, NULL);
     xTaskCreate(jtag_task, "jtag_task", 4 * 1024, NULL, 5, NULL);
+
+    LED1_ON();
+    esp_err_t app_wifi_main(void);
+    if (ESP_OK == app_wifi_main()) {
+        for (size_t i = 0; i < 4; i++) {
+            LED1_ON();
+            vTaskDelay(pdMS_TO_TICKS(50));
+            LED1_OFF();
+        }
+        tcp_start();
+    }
+    LED1_OFF();
 }

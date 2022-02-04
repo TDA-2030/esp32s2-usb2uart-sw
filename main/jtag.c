@@ -154,7 +154,8 @@ static void usb_reader_task(void *pvParameters)
             }
         }
         // Even vTaskDelay(1) would give poor performance with 99% IDLE task.
-        taskYIELD();
+        // taskYIELD();
+        vTaskDelay(1);
     }
     vTaskDelete(NULL);
 }
