@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <math.h>
 #include "driver/ledc.h"
 #include "hal/ledc_ll.h"
 #include "esp_err.h"
@@ -10,6 +11,8 @@
 #define LEDC_DUTY_RES           LEDC_TIMER_12_BIT
 #define LEDC_FREQUENCY          (5000) // Frequency in Hertz. Set frequency at 5 kHz
 
+#define LEDPWM_CNT_TOP 100
+static uint8_t gamma_table[LEDPWM_CNT_TOP + 1];
 
 void led_init(void)
 {
@@ -45,15 +48,24 @@ void led_init(void)
     ledc_channel.gpio_num       = CONFIG_BRIDGE_GPIO_LED3;
     ESP_ERROR_CHECK(ledc_channel_config(&ledc_channel));
     ESP_LOGI("led", "LED init done");
+
+    // Generate gamma correction table
+    for (int i = 0; i < (LEDPWM_CNT_TOP + 1); i++) {
+        gamma_table[i] = (int)roundf(powf((float)i / (float)LEDPWM_CNT_TOP, 1.0 / 0.45) * (float)LEDPWM_CNT_TOP);
+    }
 }
 
 void led_set_duty(uint8_t id, uint32_t duty)
 {
+    if (duty > LEDPWM_CNT_TOP) {
+        duty = LEDPWM_CNT_TOP;
+    }
+
     // ESP_ERROR_CHECK(ledc_set_duty(LEDC_MODE, id, duty));
     // // Update duty to apply the new value
     // ESP_ERROR_CHECK(ledc_update_duty(LEDC_MODE, id));
 
-    ledc_ll_set_duty_int_part(LEDC_LL_GET_HW(), LEDC_MODE, id, duty);
+    ledc_ll_set_duty_int_part(LEDC_LL_GET_HW(), LEDC_MODE, id, gamma_table[duty] * 4096 / LEDPWM_CNT_TOP);
     ledc_ll_ls_channel_update(LEDC_LL_GET_HW(), LEDC_MODE, id);
     ledc_ll_set_duty_start(LEDC_LL_GET_HW(), LEDC_MODE, id, 1);
 }

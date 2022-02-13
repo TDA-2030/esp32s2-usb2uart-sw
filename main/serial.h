@@ -17,3 +17,4 @@
 void start_serial_task(void *pvParameters);
 void serial_set(bool enable);
 bool serial_set_baudrate(int baud);
+void serial_set_telnet(bool enable);

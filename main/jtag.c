@@ -21,6 +21,7 @@
 #include "driver/gpio.h"
 #include "util.h"
 #include "io.h"
+#include "led.h"
 
 #define USB_RCVBUF_SIZE             4096
 #define USB_SNDBUF_SIZE             (32*1024)
@@ -304,11 +305,11 @@ void jtag_task(void *pvParameters)
     int prev_cmd = CMD_SRST0, rep_cnt = 0;
 
     while (1) {
-        // gpio_set_level(LED_JTAG, LED_JTAG_OFF);
+        LED_JTAG_OFF();
         char *nibbles = (char *)xRingbufferReceive(usb_rcvbuf,
                         &cnt,
                         portMAX_DELAY);
-        // gpio_set_level(LED_JTAG, LED_JTAG_ON);
+        LED_JTAG_ON();
 
         ESP_LOG_BUFFER_HEXDUMP(TAG, nibbles, cnt, ESP_LOG_DEBUG);
 

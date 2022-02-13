@@ -30,7 +30,7 @@
 #include "sdkconfig.h"
 #include "esp_system.h"
 #include "led.h"
-#include "tcp_server.h"
+#include "telnet_com.h"
 
 static const char *TAG = "bridge_main";
 
@@ -252,15 +252,12 @@ void app_main(void)
     xTaskCreate(start_serial_task, "start_serial_task", 4 * 1024, NULL, configMAX_PRIORITIES - 4, NULL);
     xTaskCreate(jtag_task, "jtag_task", 4 * 1024, NULL, 5, NULL);
 
-    LED1_ON();
+    led_set_duty(0, 40);
     esp_err_t app_wifi_main(void);
     if (ESP_OK == app_wifi_main()) {
-        for (size_t i = 0; i < 4; i++) {
-            LED1_ON();
-            vTaskDelay(pdMS_TO_TICKS(50));
-            LED1_OFF();
-        }
-        tcp_start();
+        led_set_duty(0, 70);
+        telnet_com_start();
+    }else{
+        led_set_duty(0, 15);
     }
-    LED1_OFF();
 }

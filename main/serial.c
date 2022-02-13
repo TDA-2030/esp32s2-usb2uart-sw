@@ -29,6 +29,7 @@
 #include "serial.h"
 #include "io.h"
 #include "jtag.h"
+#include "telnet_com.h"
 
 #define SLAVE_UART_NUM          UART_NUM_1
 #define SLAVE_UART_BUF_SIZE     (2 * 1024)
@@ -47,6 +48,7 @@ static esp_timer_handle_t state_change_timer;
 
 static bool serial_init_finished = false;
 static bool serial_read_enabled = false;
+static bool serial_to_telnet = false;
 
 static void uart_event_task(void *pvParameters)
 {
@@ -63,16 +65,21 @@ static void uart_event_task(void *pvParameters)
                     size_t buffered_len;
                     uart_get_buffered_data_len(SLAVE_UART_NUM, &buffered_len);
                     const int read = uart_read_bytes(SLAVE_UART_NUM, dtmp, MIN(buffered_len, SLAVE_UART_BUF_SIZE), portMAX_DELAY);
-                    ESP_LOGD(TAG, "UART -> CDC ringbuffer (%d bytes)", read);
-                    ESP_LOG_BUFFER_HEXDUMP("UART -> CDC", dtmp, read, ESP_LOG_DEBUG);
 
-                    // We cannot wait it here because UART events would overflow and have to copy the data into
-                    // another buffer and wait until it can be sent.
-                    if (xRingbufferSend(usb_sendbuf, dtmp, read, pdMS_TO_TICKS(10)) != pdTRUE) {
-                        ESP_LOGV(TAG, "Cannot write to ringbuffer (free %d of %d)!",
-                                 xRingbufferGetCurFreeSize(usb_sendbuf),
-                                 USB_SEND_RINGBUFFER_SIZE);
-                        vTaskDelay(pdMS_TO_TICKS(10));
+                    if (serial_to_telnet) {
+                        telnet_send_date(dtmp, read);
+                    } else {
+                        ESP_LOGD(TAG, "UART -> CDC ringbuffer (%d bytes)", read);
+                        ESP_LOG_BUFFER_HEXDUMP("UART -> CDC", dtmp, read, ESP_LOG_DEBUG);
+
+                        // We cannot wait it here because UART events would overflow and have to copy the data into
+                        // another buffer and wait until it can be sent.
+                        if (xRingbufferSend(usb_sendbuf, dtmp, read, pdMS_TO_TICKS(10)) != pdTRUE) {
+                            ESP_LOGV(TAG, "Cannot write to ringbuffer (free %d of %d)!",
+                                     xRingbufferGetCurFreeSize(usb_sendbuf),
+                                     USB_SEND_RINGBUFFER_SIZE);
+                            vTaskDelay(pdMS_TO_TICKS(10));
+                        }
                     }
                 }
                 break;
@@ -325,6 +332,11 @@ void start_serial_task(void *pvParameters)
 void serial_set(bool enable)
 {
     serial_read_enabled = enable;
+}
+
+void serial_set_telnet(bool enable)
+{
+    serial_to_telnet = enable;
 }
 
 bool serial_set_baudrate(int baud)

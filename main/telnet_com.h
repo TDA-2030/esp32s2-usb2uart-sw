@@ -7,7 +7,8 @@
 extern "C" {
 #endif
 
-void tcp_start(void);
+void telnet_com_start(void);
+esp_err_t telnet_send_date(const uint8_t *data, size_t length);
 
 #ifdef __cplusplus
 }
