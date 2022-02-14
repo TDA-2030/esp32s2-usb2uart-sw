@@ -36,7 +36,6 @@
 
 static const char *TAG = "telnet";
 
-
 // telnet protocol characters
 #define SE 0xf0    // Subnegotiation End
 #define NOP 0xf1   // No Operation
@@ -340,35 +339,27 @@ static void telnet_parse(telnet_data_t *telnet, uint8_t *inBuf, int len)
             send_data(telnet->client_socket, respBuf, 7);
             state = TN_STATE_END;
         } break;
-        case TN_STATE_SETCONTROL: { // switch control line and delay a tad
-            ESP_LOGI(TAG, "TN_STATE_SETCONTROL, %x", c);
+        case TN_STATE_SETCONTROL: { // switch control line
+            static bool dtr = 1, rts = 1;
             switch (c) {
             case CONTROL_DTR_ON:
-                ESP_LOGI(TAG, "reset start");
-                gpio_set_level(GPIO_RST, 0);
+                dtr = 0;
                 break;
             case CONTROL_DTR_OFF:
-                ESP_LOGI(TAG, "reset end");
-                gpio_set_level(GPIO_RST, 1);
+                dtr = 1;
                 break;
             case CONTROL_RTS_ON:
-                ESP_LOGI(TAG, "BOOT LOW");
-                gpio_set_level(GPIO_BOOT, 0);
+                rts = 0;
                 break;
             case CONTROL_RTS_OFF:
-                ESP_LOGI(TAG, "BOOT HIGH");
-                gpio_set_level(GPIO_BOOT, 1);
+                rts = 1;
                 break;
-            case CONTROL_BREAK_REQ: {
+            case CONTROL_BREAK_REQ:
                 ESP_LOGI(TAG, "BREAK state requested: state = %d)", tn_break);
-
                 break;
-            }
             case CONTROL_BREAK_ON:
-
                 tn_break = 1;
                 ESP_LOGI(TAG, "BREAK ON: set TX to LOW");
-
                 break;
             case CONTROL_BREAK_OFF:
                 if (tn_break == 1) {
@@ -376,14 +367,24 @@ static void telnet_parse(telnet_data_t *telnet, uint8_t *inBuf, int len)
                     // PIN_FUNC_SELECT(PERIPHS_IO_MUX_U0TXD_U, FUNC_U0TXD);
                     tn_break = 0;
                     ESP_LOGI(TAG, "BREAK OFF: set TX to HIGH");
-
                 }
                 break;
             case CONTROL_NONE:
                 ESP_LOGI(TAG, "CONTROL_NONE");
                 break;
-
+            default:
+                ESP_LOGW(TAG, "unsupported control [%d], drop it", c);
+                break;
             }
+
+            if (CONTROL_NONE != c) {
+                bool rst = rts;
+                bool boot = dtr;
+                gpio_set_level(GPIO_BOOT, boot);
+                gpio_set_level(GPIO_RST, rst);
+                ESP_LOGI(TAG, "RESET:%s, BOOT:%s", boot ? "H" : "L", rst ? "H" : "L");
+            }
+
             uint8_t respBuf[7] = {IAC, SB, COM_PORT_OPTION, SERVER_SET_CONTROL, c, IAC, SE};
             send_data(telnet->client_socket, respBuf, 7);
             state = TN_STATE_END;
@@ -412,14 +413,14 @@ static void telnet_parse(telnet_data_t *telnet, uint8_t *inBuf, int len)
             tn_baud |= ((uint32_t)c) << (24 - 8 * tn_baudCnt);
             tn_baudCnt++;
             uint32_t b = 115200;
-            if (tn_baudCnt == 4) {
-                // we got all four baud rate bytes (big endian)
-                if (tn_baud >= 300 && tn_baud <= 1000000) {
-                    serial_set_baudrate(tn_baud);
-                    ESP_LOGI(TAG, "%d baud", tn_baud);
-                    b = tn_baud;
-                } else if (tn_baud == 0) {// baud rate of zero means we need to send the baud rate
+            if (tn_baudCnt == 4) {// we got all four baud rate bytes (big endian)
+                if (tn_baud == 0) {// baud rate of zero means we need to send the baud rate
                     uart_get_baudrate(UART_NUM_1, &b);
+                    ESP_LOGI(TAG, "get baud %d", b);
+                } else {
+                    ESP_LOGI(TAG, "%d baud", tn_baud);
+                    serial_set_baudrate(tn_baud);
+                    b = tn_baud;
                 }
                 uint8_t respBuf[10] = {IAC, SB, COM_PORT_OPTION, SERVER_SET_BAUDRATE, b >> 24, b >> 16, b >> 8, b, IAC, SE};
                 send_data(telnet->client_socket, respBuf, 10);
