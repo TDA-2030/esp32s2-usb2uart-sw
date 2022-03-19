@@ -33,11 +33,11 @@
    If you'd rather not, just change the below entries to strings with
    the config you want - ie #define EXAMPLE_WIFI_SSID "mywifissid"
 */
-#define EXAMPLE_ESP_WIFI_SSID      "myssid"
-#define EXAMPLE_ESP_WIFI_PASS      "espressif"
+#define EXAMPLE_ESP_WIFI_SSID      "ASUS"
+#define EXAMPLE_ESP_WIFI_PASS      "zhouli1997"
 #define EXAMPLE_ESP_MAXIMUM_RETRY  5
-#define EXAMPLE_ESP_WIFI_AP_SSID   "usb-bridge"
-#define EXAMPLE_ESP_WIFI_AP_PASS   "espressif"
+#define EXAMPLE_ESP_WIFI_AP_SSID   ""
+#define EXAMPLE_ESP_WIFI_AP_PASS   ""
 #define EXAMPLE_MAX_STA_CONN       2
 #define EXAMPLE_IP_ADDR            "192.168.4.1"
 #define EXAMPLE_ESP_WIFI_AP_CHANNEL ""
@@ -150,13 +150,6 @@ void wifi_init_sta()
 
 esp_err_t app_wifi_main()
 {
-    esp_err_t ret = nvs_flash_init();
-    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        ret = nvs_flash_init();
-    }
-    ESP_ERROR_CHECK(ret);
-
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     wifi_mode_t mode = WIFI_MODE_NULL;
 
@@ -188,7 +181,7 @@ esp_err_t app_wifi_main()
         wifi_init_sta();
     }
     ESP_ERROR_CHECK(esp_wifi_start());
-    ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
+    ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_MAX_MODEM));
     ESP_LOGI(TAG, "wifi_init_sta finished.");
 
     EventBits_t bits = xEventGroupWaitBits(s_wifi_event_group,
@@ -199,7 +192,7 @@ esp_err_t app_wifi_main()
     vEventGroupDelete(s_wifi_event_group);
     s_wifi_event_group = NULL;
 
-    ret = ESP_FAIL;
+    esp_err_t ret = ESP_FAIL;
     if (bits & WIFI_CONNECTED_BIT) {
         ret = ESP_OK;
     }

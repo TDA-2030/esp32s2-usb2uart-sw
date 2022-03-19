@@ -31,6 +31,8 @@
 #include "esp_system.h"
 #include "led.h"
 #include "telnet_com.h"
+#include "iot_button.h"
+#include "settings.h"
 
 static const char *TAG = "bridge_main";
 
@@ -207,8 +209,42 @@ static void tusb_device_task(void *pvParameters)
     vTaskDelete(NULL);
 }
 
+static void button_press_down_cb(void *arg)
+{
+    sys_param_t *param = settings_get_parameter();
+    param->wifi_on = !param->wifi_on;
+    LED3_ON();
+    if (param->wifi_on) {
+        LED2_ON();
+    }
+    settings_write_parameter_to_nvs();
+    LED3_OFF();
+    if (param->wifi_on) {
+        LED2_OFF();
+    }
+}
+
 void app_main(void)
 {
+    esp_err_t ret = nvs_flash_init();
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        ret = nvs_flash_init();
+    }
+    ESP_ERROR_CHECK(ret);
+
+    settings_read_parameter_from_nvs();
+    sys_param_t *param = settings_get_parameter();
+
+    button_config_t cfg = {
+        .type = BUTTON_TYPE_GPIO,
+        .gpio_button_config = {
+            .gpio_num = 0,
+            .active_level = 0,
+        },
+    };
+    button_handle_t button = iot_button_create(&cfg);
+    iot_button_register_cb(button, BUTTON_PRESS_DOWN, button_press_down_cb);
     led_init(); // Keep this at the begining. LEDs are used for error reporting.
 
     LED1_ON();
@@ -227,13 +263,6 @@ void app_main(void)
     LED2_OFF();
     LED3_OFF();
 
-    esp_err_t ret = nvs_flash_init();
-    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        ret = nvs_flash_init();
-    }
-    ESP_ERROR_CHECK(ret);
-
     init_serial_no();
 
     periph_module_reset(PERIPH_USB_MODULE);
@@ -251,13 +280,15 @@ void app_main(void)
     xTaskCreate(msc_task, "msc_task", 4 * 1024, NULL, 5, NULL);
     xTaskCreate(start_serial_task, "start_serial_task", 4 * 1024, NULL, configMAX_PRIORITIES - 4, NULL);
     xTaskCreate(jtag_task, "jtag_task", 4 * 1024, NULL, 5, NULL);
-
-    led_set_duty(0, 40);
-    esp_err_t app_wifi_main(void);
-    if (ESP_OK == app_wifi_main()) {
-        led_set_duty(0, 70);
-        telnet_com_start();
-    }else{
-        led_set_duty(0, 15);
+    
+    if (param->wifi_on) {
+        led_set_duty(0, 40);
+        esp_err_t app_wifi_main(void);
+        if (ESP_OK == app_wifi_main()) {
+            led_set_duty(0, 70);
+            telnet_com_start();
+        } else {
+            led_set_duty(0, 15);
+        }
     }
 }
